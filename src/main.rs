@@ -93,7 +93,7 @@ impl Expression {
                                     right_right,
                                 )
                             )
-                        )
+                        ).optimize()
                     }
 
                     (
@@ -108,7 +108,7 @@ impl Expression {
                                     right_left,
                                 )
                             )
-                        )
+                        ).optimize()
                     }
 
                     (
@@ -123,7 +123,7 @@ impl Expression {
                                     right_right,
                                 )
                             )
-                        )
+                        ).optimize()
                     }
 
                     (
@@ -138,7 +138,7 @@ impl Expression {
                                     right_left,
                                 )
                             )
-                        )
+                        ).optimize()
                     }
 
                     // Absortion Law
@@ -205,38 +205,17 @@ fn main () {
 
     let expression1 = Expression::Or(
         Box::new(
-            Expression::Or(
+            Expression::And(
                 Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Var('a')
-                        ),
-                        Box::new(
-                            Expression::Var('b')
-                        ),
-                    )
+                    Expression::Var('a')
                 ),
                 Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Not(
-                                Box::new(
-                                    Expression::Var('a')
-                                )
-                            )
-                        ),
-                        Box::new(
-                            Expression::Var('b')
-                        ),
-                    )
+                    Expression::Var('b')
                 ),
             )
         ),
         Box::new(
             Expression::And(
-                Box::new(
-                    Expression::Var('a')
-                ),
                 Box::new(
                     Expression::Not(
                         Box::new(
@@ -244,13 +223,17 @@ fn main () {
                         )
                     )
                 ),
+                Box::new(
+                    Expression::Var('b')
+                ),
             )
-        )
+        ),
     );
     
     println!("{:#?}", expression1);
     println!();
     println!("{:#?}", expression1.clone().optimize());
+    println!("{:#?}", expression1.clone().optimize().optimize());
 }
 
 #[cfg(test)]
@@ -420,6 +403,7 @@ mod test {
     #[test]
     fn should_optimize_and_with_absortion_law () {
         let expressions = [
+            // Left left
             Expression::And(
                 Box::new(
                     Expression::Or(
@@ -436,6 +420,7 @@ mod test {
                 ),
             ),
 
+            // Left right
             Expression::And(
                 Box::new(
                     Expression::Or(
@@ -452,6 +437,7 @@ mod test {
                 ),
             ),
 
+            // Right left
             Expression::And(
                 Box::new(
                     Expression::Var('a'),
@@ -468,6 +454,7 @@ mod test {
                 ),
             ),
 
+            // Right right
             Expression::And(
                 Box::new(
                     Expression::Var('a'),
@@ -523,6 +510,64 @@ mod test {
         );
         
         assert_eq!(idempotent_or.optimize(), Expression::Var('a'));
+    }
+
+    #[test]
+    fn should_optimize_or_with_identity_law () {
+        let expressions = [
+            // Left
+            Expression::Or(
+                Box::new(
+                    Expression::False,
+                ),
+                Box::new(
+                    Expression::Var('a')
+                ),
+            ),
+
+            // Right
+            Expression::Or(
+                Box::new(
+                    Expression::Var('a')
+                ),
+                Box::new(
+                    Expression::False,
+                ),
+            )
+        ];
+
+        for expression in expressions {
+            assert_eq!(expression.optimize(), Expression::Var('a'));
+        }
+    }
+
+    #[test]
+    fn should_optimize_or_with_null_law () {
+        let expressions = [
+            // Left
+            Expression::Or(
+                Box::new(
+                    Expression::True,
+                ),
+                Box::new(
+                    Expression::Var('a')
+                ),
+            ),
+
+            // Right
+            Expression::Or(
+                Box::new(
+                    Expression::Var('a')
+                ),
+                Box::new(
+                    Expression::True,
+                ),
+            )
+        ];
+
+        for expression in expressions {
+            assert_eq!(expression.optimize(), Expression::True);
+        }
     }
 
     #[test]
@@ -945,5 +990,37 @@ mod test {
                 )
             )
         );
+    }
+
+    #[test]
+    fn should_apply_anti_distributive_and_complement_laws_in_a_single_optimization_pass () {
+        let expression = Expression::Or(
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Var('b')
+                    ),
+                )
+            ),
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Not(
+                            Box::new(
+                                Expression::Var('b')
+                            )
+                        )
+                    ),
+                )
+            ),
+        );
+
+        assert_eq!(expression.optimize(), Expression::Var('a'));
     }
 }
