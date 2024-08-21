@@ -84,16 +84,18 @@ impl Expression {
                     (
                         Expression::And (left_left, left_right),
                         Expression::And (right_left, right_right),
-                    ) if *left_left == *right_left => {
-                        Expression::And(
-                            left_left,
-                            Box::new(
-                                Expression::Or(
-                                    left_right,
-                                    right_right,
+                    ) => {
+                        if *left_left == *right_left => {
+                            Expression::And(
+                                left_left,
+                                Box::new(
+                                    Expression::Or(
+                                        left_right,
+                                        right_right,
+                                    )
                                 )
-                            )
-                        ).optimize()
+                            ).optimize()
+                        }
                     }
 
                     (
@@ -676,7 +678,7 @@ mod test {
                         ),
                     )
                 ),
-            )
+            ),
         ];
         
         for expression in expressions {
@@ -806,6 +808,56 @@ mod test {
             );
         }
     }
+
+    #[test]
+    fn should_not_optimize_or_expression_with_anti_distributive_law_when_the_two_inner_expressions_are_and_but_have_different_terms () {
+        let expression = Expression::Or(
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a'),
+                    ),
+                    Box::new(
+                        Expression::Var('b'),
+                    ),
+                )
+            ),
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('c'),
+                    ),
+                    Box::new(
+                        Expression::Var('d'),
+                    ),
+                )
+            ),
+        );
+
+        assert_eq!(expression.optimize(), Expression::Or(
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a'),
+                    ),
+                    Box::new(
+                        Expression::Var('b'),
+                    ),
+                )
+            ),
+            Box::new(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('c'),
+                    ),
+                    Box::new(
+                        Expression::Var('d'),
+                    ),
+                )
+            ),
+        ));
+    }
+
     
     #[test]
     fn should_simplify_and () {
