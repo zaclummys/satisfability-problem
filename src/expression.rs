@@ -68,6 +68,65 @@ impl Expression {
                     (Expression::Or (left_left, left_right), right) if *left_left == right || *left_right == right => right,
                     (left, Expression::Or (right_left, right_right)) if *right_left == left || *right_right == left => left,
 
+                    (left, Expression::Or (right_left, right_right)) => {                        
+                        match (*right_left, *right_right) {
+                            (Expression::Not(inner), right_right) if *inner == left => {
+                                Expression::And(
+                                    Box::new(left),
+                                    Box::new(right_right),
+                                )
+                            }
+
+                            (right_left, Expression::Not(inner)) if *inner == left => {
+                                Expression::And(
+                                    Box::new(left),
+                                    Box::new(right_left),
+                                )
+                            }
+
+                            (right_left, right_right) => {
+                                Expression::And(
+                                    Box::new(left),
+                                    Box::new(
+                                        Expression::Or(
+                                            Box::new(right_left),
+                                            Box::new(right_right),
+                                        )
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    (Expression::Or (left_left, left_right), right) => {
+                        match (*left_left, *left_right) {
+                            (Expression::Not(inner), left_right) if *inner == right => {
+                                Expression::And(
+                                    Box::new(right),
+                                    Box::new(left_right),
+                                )
+                            }
+
+                            (left_left, Expression::Not(inner)) if *inner == right => {
+                                Expression::And(
+                                    Box::new(right),
+                                    Box::new(left_left),
+                                )
+                            }
+
+                            (left_left, left_right) => {
+                                Expression::And(
+                                    Box::new(
+                                        Expression::Or(
+                                            Box::new(left_left),
+                                            Box::new(left_right),
+                                        )
+                                    ),
+                                    Box::new(right),
+                                )
+                            }
+                        }
+                    }
                     (left, right) => Expression::And(
                         Box::new(left),
                         Box::new(right),
@@ -1204,5 +1263,76 @@ mod test {
         );
 
         assert_eq!(expression.optimize(), Expression::Var('a'));
+    }
+
+    #[test]
+    fn should_optimize_to_common_scenarios () {
+        let scenarios = [
+            (
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Or(
+                            Box::new(
+                                Expression::Not(
+                                    Box::new(
+                                        Expression::Var('a')
+                                    )
+                                )
+                            ),
+                            Box::new(
+                                Expression::Var('b')
+                            ),
+                        )
+                    ),
+                ),
+
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Var('b')
+                    )
+                ),
+            ),
+
+            (
+                Expression::And(
+                    Box::new(
+                        Expression::Or(
+                            Box::new(
+                                Expression::Not(
+                                    Box::new(
+                                        Expression::Var('a')
+                                    )
+                                )
+                            ),
+                            Box::new(
+                                Expression::Var('b')
+                            ),
+                        )
+                    ),
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                ),
+
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Var('b')
+                    )
+                ),
+            )
+        ];
+
+        for (before, after) in scenarios {
+            assert_eq!(before.optimize(), after);
+        }
     }
 }
