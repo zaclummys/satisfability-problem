@@ -158,7 +158,7 @@ impl Expression {
         }
     }
     
-    fn apply (self) -> Expression {
+    pub fn apply (self) -> Expression {
         self
             .optimize()
             .simplify()
@@ -171,25 +171,84 @@ mod test {
     use super::*;
 
     #[test]
-    fn and_should_be_equal () {
+    fn should_be_equal () {
         let comparisons = [
+            (Expression::True, Expression::True),
+            (Expression::False, Expression::False),
+
+            (
+                Expression::Var('a'),
+                Expression::Var('a'),
+            ),
+
+            (
+                Expression::Not(Box::new(Expression::Var('a'))),
+                Expression::Not(Box::new(Expression::Var('a'))),
+            ),
+
             (
                 Expression::And(
-                    Box::new(
-                        Expression::Var('a')
-                    ),
-                    Box::new(
-                        Expression::Var('b')
-                    )
-                ),
-    
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
                 Expression::And(
-                    Box::new(
-                        Expression::Var('a')
-                    ),
-                    Box::new(
-                        Expression::Var('b')
-                    )
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                )
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                )
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('a')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('a')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
                 )
             ),
         ];
@@ -200,6 +259,116 @@ mod test {
         }
     }
 
+    #[test]
+    fn should_not_be_equal () {
+        let comparisons = [
+            (Expression::True, Expression::False),
+            (Expression::False, Expression::True),
+
+            (
+                Expression::Var('a'),
+                Expression::Var('b'),
+            ),
+
+            (
+                Expression::Not(Box::new(Expression::Var('a'))),
+                Expression::Not(Box::new(Expression::Var('b'))),
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('b')),
+                )
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('c')),
+                )
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var('c')),
+                ),
+            ),
+
+            (
+                Expression::And(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::And(
+                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var('d')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('b')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('a')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var('c')),
+                )
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var('c')),
+                ),
+            ),
+
+            (
+                Expression::Or(
+                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var('b')),
+                ),    
+                Expression::Or(
+                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var('d')),
+                )
+            ),
+        ];
+
+        for (left, right) in comparisons {
+            assert_ne!(left, right);
+            assert_ne!(right, left);
+        }
+    }
     #[test]
     fn should_optimize_not () {
         let expression = Expression::Not(

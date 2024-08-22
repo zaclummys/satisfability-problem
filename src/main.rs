@@ -3,13 +3,17 @@ mod expression;
 use self::expression::Expression;
 
 fn main () {  
-    let expression1 = Expression::from_expressions([
-        Expression::Not(
+    let expression = Expression::from_expressions([
+        Expression::Or(
             Box::new(
                 Expression::Var('a')
-            )
+            ),
+            Box::new(
+                Expression::Var('b')
+            ),
         ),
-        Expression::And(
+        
+        Expression::Or(
             Box::new(
                 Expression::Not(
                     Box::new(
@@ -18,16 +22,12 @@ fn main () {
                 )
             ),
             Box::new(
-                Expression::Not(
-                    Box::new(
-                        Expression::Var('b')
-                    )
-                )
-            )
+                Expression::Var('c')
+            ),
         )
     ]).expect("No expression");
 
-    println!("{:#?}", expression1);
+    println!("{:#?}", expression);
     println!();
-    println!("{:#?}", expression1.clone().optimize().simplify().optimize());
+    println!("{:#?}", expression.clone().apply());
 }
