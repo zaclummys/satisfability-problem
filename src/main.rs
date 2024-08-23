@@ -1,10 +1,22 @@
 mod expression;
+mod parser;
+mod lexer;
+mod token;
 
-use self::expression::Expression;
+use self::expression::{
+    Expression,
+    Satisfability,
+    Expectative,
+};
 
 fn main () {  
     let expression = Expression::from_expressions([
-        Expression::Or(
+        Expression::Not(
+            Box::new(
+                Expression::Var('x')
+            )
+        ),
+        Expression::And(
             Box::new(
                 Expression::Var('a')
             ),
@@ -12,22 +24,46 @@ fn main () {
                 Expression::Var('b')
             ),
         ),
-        
         Expression::Or(
             Box::new(
-                Expression::Not(
+                Expression::And(
+                    Box::new(
+                        Expression::Var('x')
+                    ),
                     Box::new(
                         Expression::Var('b')
-                    )
+                    ),
                 )
             ),
             Box::new(
-                Expression::Var('c')
+                Expression::And(
+                    Box::new(
+                        Expression::Var('a')
+                    ),
+                    Box::new(
+                        Expression::Var('y')
+                    ),
+                )
             ),
         )
-    ]).expect("No expression");
+    ])
+        .unwrap()
+        .optimize();
 
-    println!("{:#?}", expression);
-    println!();
-    println!("{:#?}", expression.clone().apply());
+
+    let mut satisfability = Satisfability::new();
+
+    let satisfies = satisfability.satisfies(&expression, Expectative::True);
+
+    println!("Satisfies? {}", satisfies);
+    println!("{:?}", satisfability.expectatives);
+
+    // println!("{:#?}", expression);
+    // println!();
+    println!("{:#?}", expression
+        .de_morgan()
+        .optimize()
+        .simplify()
+        .optimize()
+    );
 }

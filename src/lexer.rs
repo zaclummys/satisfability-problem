@@ -1,29 +1,104 @@
+use std::str::Chars;
+
 #[derive(Debug, PartialEq, Eq)]
-enum Token {
+pub enum Token {
     Var(char),
     And,
     Or,
     Not,
-    LeftParen,
-    RightParen,
+    LParen,
+    RParen,
+    End,
 }
 
-fn tokenize(expression: &str) -> Vec<Token> {
-    let mut tokens = Vec::new();
-    
-    for ch in expression.chars() {
-        match ch {
-            'a'..='z' | 'A'..='Z' => tokens.push(Token::Var(ch)),
-            '∧' => tokens.push(Token::And),
-            '∨' => tokens.push(Token::Or),
-            '¬' => tokens.push(Token::Not),
-            '(' => tokens.push(Token::LParen),
-            ')' => tokens.push(Token::RParen),
-            ch => {
-                panic!("Unexpected char: {}", ch);
-            }
+#[derive(Debug, PartialEq, Eq)]
+pub enum LexerError {
+    UnexpectedCharacter (char)
+}
+
+pub type LexerResult = Result<Token, LexerError>;
+
+pub struct Lexer<'a> {
+    chars: Chars<'a>
+}
+
+impl<'a> Lexer<'a> {
+    pub fn new (string: &'a str) -> Lexer<'a> {
+        Lexer {
+            chars: string.chars()
         }
     }
+}
 
-    tokens
+impl<'a> Iterator for Lexer<'a> {
+    type Item = LexerResult;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chars.next()
+            .map(|ch| {
+                match ch {
+                    '∧' => Ok(Token::And),
+                    '∨' => Ok(Token::Or),
+                    '¬' => Ok(Token::Not),
+                    '(' => Ok(Token::LParen),
+                    ')' => Ok(Token::RParen),
+                    'a'..='z' | 'A'..='Z' => Ok(Token::Var(ch)),
+                    ch => Err(LexerError::UnexpectedCharacter(ch))
+                }
+            })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_tokenize_var() {
+        let mut lexer = Lexer::new("a");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::Var('a'))));
+    }
+
+    #[test]
+    fn should_tokenize_and() {
+        let mut lexer = Lexer::new("∧");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::And)));
+    }
+
+    #[test]
+    fn should_tokenize_or() {
+        let mut lexer = Lexer::new("∨");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::Or)));
+    }
+
+    #[test]
+    fn should_tokenize_not() {
+        let mut lexer = Lexer::new("¬");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::Not)));
+    }
+
+    #[test]
+    fn should_tokenize_lparen() {
+        let mut lexer = Lexer::new("(");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::LParen)));
+    }
+
+    #[test]
+    fn should_tokenize_rparen() {
+        let mut lexer = Lexer::new(")");
+        
+        assert_eq!(lexer.next(), Some(Ok(Token::RParen)));
+    }
+
+    #[test]
+    fn should_tokenize_invalid_char() {
+        let mut lexer = Lexer::new("!");
+        
+        assert_eq!(lexer.next(), Some(Err(LexerError::UnexpectedCharacter('!'))));
+    }
 }
