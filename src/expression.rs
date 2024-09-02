@@ -11,6 +11,51 @@ pub enum Expression {
     False,
 }
 
+enum Miniexpression {
+    Var (char),
+
+    LTRT (Box<Miniexpression>, Box<Miniexpression>),
+    LTRF (Box<Miniexpression>, Box<Miniexpression>),
+    LFRT (Box<Miniexpression>, Box<Miniexpression>),
+    LFRF (Box<Miniexpression>, Box<Miniexpression>),
+
+    All (Vec<Miniexpression>),
+    Any (Vec<Miniexpression>),
+}
+
+// impl From<Expression> for Miniexpression {
+//     fn from(expression: Expression) -> Miniexpression {
+//         match expression {
+//             Expression::And (left, right) => Miniexpression::LTRT(
+//                 Box::new((*left).into()),
+//                 Box::new((*right).into()),
+//             ),
+
+//             Expression::Or (left, right) => {
+//                 let left = (*left).into();
+//                 let right = (*right).into();
+
+//                 Miniexpression::Any(vec![
+//                     Miniexpression::LTRT(
+//                         Box::new(left),
+//                         Box::new(right),
+//                     ),   
+    
+//                     Miniexpression::LTRF(
+//                         Box::new(left),
+//                         Box::new(right),
+//                     ), 
+    
+//                     Miniexpression::LFRT(
+//                         Box::new(left),
+//                         Box::new(right),
+//                     ),
+//                 ])
+//             }
+//         }
+//     }
+// }
+
 impl PartialEq for Expression {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -57,7 +102,7 @@ impl Expression {
                     )
                 }
 
-                expression => expression
+                expression => Expression::Not(Box::new(expression))
             }
 
             expression => expression
@@ -167,21 +212,9 @@ impl Expression {
                 let left = left.simplify();
                 let right = right.simplify();
                 
-                Expression::Not(
-                    Box::new(
-                        Expression::Or(
-                            Box::new(
-                                Expression::Not(
-                                    Box::new(left)
-                                )
-                            ),
-                            Box::new(
-                                Expression::Not(
-                                    Box::new(right)
-                                )
-                            ),
-                        )
-                    )
+                Expression::And(
+                    Box::new(left.simplify()),
+                    Box::new(right.simplify()),
                 )
             }
             
@@ -225,106 +258,6 @@ impl Expression {
             .simplify()
             .optimize()
     }
-}
-
-#[derive(Debug)]
-pub enum Expectative {
-    True,
-    False,
-    Any,
-}
-
-use std::collections::hash_map::{HashMap, Entry};
-
-pub struct Satisfability {
-    pub expectatives: HashMap<char, Expectative>,
-}
-
-impl Satisfability {
-    pub fn new () -> Satisfability {
-        Satisfability {
-            expectatives: HashMap::new()
-        }
-    }
-
-    pub fn satisfies<'b> (&mut self, expression: &Expression, expectative: Expectative) -> bool {
-        match expression {
-            Expression::Var (ch) => {
-                match self.expectatives.entry(*ch) {
-                    Entry::Occupied (mut occupied) => {
-                        match (expectative, occupied.get()) {
-                            (Expectative::Any, _) => true,
-
-                            (Expectative::False, Expectative::False) => true,
-                            (Expectative::True, Expectative::True) => true,
-
-                            
-                            (Expectative::False, Expectative::True) => false,
-                            (Expectative::True, Expectative::False) => false,
-                            
-                            (expecative, Expectative::Any) => {
-                                occupied.insert(expecative);
-
-                                true
-                            }
-                        }
-                    }
-
-                    Entry::Vacant (vacant) => {
-                        vacant.insert(expectative);
-
-                        true
-                    }
-                }
-            },
-
-            Expression::Not (inner) => {
-                self.satisfies(inner, match expectative {
-                    Expectative::True => Expectative::False,
-                    Expectative::False => Expectative::True,
-                    Expectative::Any => Expectative::Any,
-                })
-            }
-
-            Expression::Or(left, right) => {
-                let l1 = self.satisfies(left, Expectative::True);
-                let l2 = self.satisfies(left, Expectative::Any);
-
-                let r1 = self.satisfies(right, Expectative::True);
-                let r2 = self.satisfies(right, Expectative::Any);
-
-                (l1 && r2) || (l2 && r1)
-            }
-
-            Expression::And(left, right) => {
-                let l = self.satisfies(left, Expectative::True);
-                let r = self.satisfies(right, Expectative::True);
-
-                l && r
-            }
-
-            Expression::True => match expectative {
-                Expectative::True | Expectative::Any => true,
-                _ => false,
-            }
-
-            Expression::False => match expectative {
-                Expectative::False | Expectative::Any => true,
-                _ => false,
-            }
-
-            Expression::Xor (left, right)=> {
-                let l1 = self.satisfies(left, Expectative::True);
-                let l2 = self.satisfies(left, Expectative::False);
-
-                let r1 = self.satisfies(right, Expectative::True);
-                let r2 = self.satisfies(right, Expectative::False);
-
-                (l1 && r2) || (l2 && r1)
-            }
-        }
-    }
-
 }
 
 #[cfg(test)]
@@ -638,6 +571,25 @@ mod test {
                         )
                     )
                 ),
+            )
+        );
+    }
+
+    #[test]
+    fn should_not_apply_de_morgan_law_when_to_not_var () {
+        let expression = Expression::Not(
+            Box::new(
+                Expression::Var('a')
+            )
+        );
+        
+        assert_eq!(
+            expression.de_morgan(),
+
+            Expression::Not(
+                Box::new(
+                    Expression::Var('a')
+                )
             )
         );
     }
@@ -1432,23 +1384,5 @@ mod test {
         for (before, after) in scenarios {
             assert_eq!(before.optimize(), after);
         }
-    }
-
-    #[test]
-    fn should_satisfy () {
-        let expression = Expression::And(
-            Box::new(
-                Expression::Var('a'),
-            ),
-            Box::new(
-                Expression::Var('b'),
-            ),
-        );
-
-        let mut satisfability = Satisfability::new();
-
-        assert_eq!(satisfability.satisfies(&expression, Expectative::True), true);
-
-        println!("{:?}", satisfability.expectatives);
     }
 }

@@ -2,68 +2,28 @@ mod expression;
 mod parser;
 mod lexer;
 mod token;
+mod satisfability;
+
+use satisfability::DynamicSatisfability;
 
 use self::expression::{
     Expression,
-    Satisfability,
-    Expectative,
 };
 
 fn main () {  
-    let expression = Expression::from_expressions([
-        Expression::Not(
-            Box::new(
-                Expression::Var('x')
-            )
+    let expression = (1..5).into_iter().fold(Expression::Var('0'), |a, b| Expression::Xor(
+        Box::new(
+            a
         ),
-        Expression::And(
-            Box::new(
-                Expression::Var('a')
-            ),
-            Box::new(
-                Expression::Var('b')
-            ),
-        ),
-        Expression::Or(
-            Box::new(
-                Expression::And(
-                    Box::new(
-                        Expression::Var('x')
-                    ),
-                    Box::new(
-                        Expression::Var('b')
-                    ),
-                )
-            ),
-            Box::new(
-                Expression::And(
-                    Box::new(
-                        Expression::Var('a')
-                    ),
-                    Box::new(
-                        Expression::Var('y')
-                    ),
-                )
-            ),
+        Box::new(
+            Expression::Var(std::char::from_u32(b).unwrap()),
         )
-    ])
-        .unwrap()
-        .optimize();
-
-
-    let mut satisfability = Satisfability::new();
-
-    let satisfies = satisfability.satisfies(&expression, Expectative::True);
-
-    println!("Satisfies? {}", satisfies);
-    println!("{:?}", satisfability.expectatives);
-
-    // println!("{:#?}", expression);
-    // println!();
-    println!("{:#?}", expression
+    ))
         .de_morgan()
         .optimize()
-        .simplify()
-        .optimize()
-    );
+        .simplify();
+
+    let satisfability = DynamicSatisfability::new(&expression);
+
+    println!("{:#?}", satisfability.satisfies(true));
 }
