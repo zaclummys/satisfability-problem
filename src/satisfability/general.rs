@@ -5,18 +5,18 @@ pub enum Expectative {
     False,
 }
 
-pub struct GeneralSatisfability<'a> {
-    expression: &'a Expression,
+pub struct GeneralSatisfability<'a, T> {
+    expression: &'a Expression<T>,
 }
 
-impl<'a> GeneralSatisfability<'a> {
-    pub fn new (expression: &'a Expression) -> GeneralSatisfability<'a> {
+impl<'a, T> GeneralSatisfability<'a, T> {
+    pub fn new (expression: &'a Expression<T>) -> GeneralSatisfability<'a, T> {
         GeneralSatisfability {
             expression
         }
     }
 
-    fn satisfies_expression (&self, expression: &Expression, expectative: Expectative) -> bool {
+    fn satisfies_expression (&self, expression: &Expression<T>, expectative: Expectative) -> bool {
         match expression {
             Expression::Var (_) => true,
 
@@ -68,8 +68,8 @@ impl<'a> GeneralSatisfability<'a> {
     }
 }
 
-impl<'a> Expression {
-    pub fn general_satisfability (&'a self) -> GeneralSatisfability<'a> {
+impl<'a, T> Expression<T> {
+    pub fn general_satisfability (&'a self) -> GeneralSatisfability<'a, T> {
         GeneralSatisfability::new(self)
     }
 }

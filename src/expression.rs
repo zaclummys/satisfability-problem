@@ -1,62 +1,18 @@
-#[derive(Eq, Debug, Clone)]
-pub enum Expression {
-    Var (char),
-    Not (Box<Expression>),
-    Or (Box<Expression>, Box<Expression>),
-    And (Box<Expression>, Box<Expression>),
+#[derive(Debug, Clone)]
+pub enum Expression<T> {
+    Var (T),
 
-    Xor (Box<Expression>, Box<Expression>),
+    Not (Box<Expression<T>>),
+    Or (Box<Expression<T>>, Box<Expression<T>>),
+    And (Box<Expression<T>>, Box<Expression<T>>),
+
+    Xor (Box<Expression<T>>, Box<Expression<T>>),
 
     True,
     False,
 }
 
-enum Miniexpression {
-    Var (char),
-
-    LTRT (Box<Miniexpression>, Box<Miniexpression>),
-    LTRF (Box<Miniexpression>, Box<Miniexpression>),
-    LFRT (Box<Miniexpression>, Box<Miniexpression>),
-    LFRF (Box<Miniexpression>, Box<Miniexpression>),
-
-    All (Vec<Miniexpression>),
-    Any (Vec<Miniexpression>),
-}
-
-// impl From<Expression> for Miniexpression {
-//     fn from(expression: Expression) -> Miniexpression {
-//         match expression {
-//             Expression::And (left, right) => Miniexpression::LTRT(
-//                 Box::new((*left).into()),
-//                 Box::new((*right).into()),
-//             ),
-
-//             Expression::Or (left, right) => {
-//                 let left = (*left).into();
-//                 let right = (*right).into();
-
-//                 Miniexpression::Any(vec![
-//                     Miniexpression::LTRT(
-//                         Box::new(left),
-//                         Box::new(right),
-//                     ),   
-    
-//                     Miniexpression::LTRF(
-//                         Box::new(left),
-//                         Box::new(right),
-//                     ), 
-    
-//                     Miniexpression::LFRT(
-//                         Box::new(left),
-//                         Box::new(right),
-//                     ),
-//                 ])
-//             }
-//         }
-//     }
-// }
-
-impl PartialEq for Expression {
+impl<T: PartialEq> PartialEq for Expression<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Not(a), Self::Not(b)) => a == b,
@@ -73,19 +29,19 @@ impl PartialEq for Expression {
 
             (Self::Var(a), Self::Var(b)) => a == b,
 
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+            _ => false,
         }
     }
 }
 
-impl Expression {
-    pub fn from_expressions<I: IntoIterator<Item = Expression>> (expressions: I) -> Option<Expression> {
+impl<T: Clone + PartialEq + std::fmt::Debug> Expression<T> {
+    pub fn from_expressions<I: IntoIterator<Item = Expression<T>>> (expressions: I) -> Option<Expression<T>> {
         expressions.into_iter().reduce(|left, right| {
             Expression::And(Box::new(left), Box::new(right))
         })
     }
 
-    pub fn de_morgan (self) -> Expression {
+    pub fn de_morgan (self) -> Expression<T> {
         match self {
             Expression::Not (a) => match a.de_morgan() {
                 Expression::And (left, right) => {
@@ -113,7 +69,9 @@ impl Expression {
      * Transform the expression into a optimized version.
      * Cannot introduce more expressions than there was previously.
      */
-    pub fn optimize (self) -> Expression {
+    pub fn optimize (self) -> Expression<T> {
+        println!("Optimizing expression");
+
         match self {
             Expression::And (left, right) => {
                 let left = left.optimize();
@@ -200,63 +158,6 @@ impl Expression {
 
             expression => expression,
         }
-    }
-    
-    /**
-     * Transform the expression into a simplified version.
-     * Can introduce more expressions than there was previously.
-     */
-    pub fn simplify (self) -> Expression {
-        match self {
-            Expression::And (left, right) => {
-                let left = left.simplify();
-                let right = right.simplify();
-                
-                Expression::And(
-                    Box::new(left.simplify()),
-                    Box::new(right.simplify()),
-                )
-            }
-            
-            Expression::Not (inner) => Expression::Not(
-                Box::new(inner.simplify())
-            ),
-            
-            Expression::Or (left, right) => Expression::Or(
-                Box::new(left.simplify()),
-                Box::new(right.simplify()),
-            ),
-
-            Expression::Xor (left, right) => {
-                let left = left.simplify();
-                let right = right.simplify();
-
-                Expression::Or(
-                    Box::new(
-                        Expression::And(
-                            Box::new(left.clone()),
-                            Box::new(Expression::Not(Box::new(right.clone()))),
-                        )
-                    ),
-                    Box::new(
-                        Expression::And(
-                            Box::new(Expression::Not(Box::new(left.clone()))),
-                            Box::new(right.clone()),
-                        )
-                    ),
-                )
-                .simplify()
-            }
-            
-            expression => expression,
-        }
-    }
-    
-    pub fn apply (self) -> Expression {
-        self
-            .optimize()
-            .simplify()
-            .optimize()
     }
 }
 
@@ -481,7 +382,7 @@ mod test {
     
     #[test]
     fn should_optimize_not_true () {
-        let expression = Expression::Not(
+        let expression: Expression<()> = Expression::Not(
             Box::new(
                 Expression::True
             )
@@ -492,7 +393,7 @@ mod test {
 
     #[test]
     fn should_optimize_not_false () {
-        let expression = Expression::Not(
+        let expression: Expression<()> = Expression::Not(
             Box::new(
                 Expression::False
             )
@@ -1194,119 +1095,6 @@ mod test {
                     ),
                 )
             ),
-        ));
-    }
-
-    
-    #[test]
-    fn should_simplify_and () {
-        let expression = Expression::And(
-            Box::new(
-                Expression::Var('a')
-            ),
-            Box::new(
-                Expression::Var('b')
-            ),
-        );
-
-        assert_eq!(expression.simplify(), Expression::Not(
-            Box::new(
-                Expression::Or(
-                    Box::new(
-                        Expression::Not(
-                            Box::new(
-                                Expression::Var('a')
-                            )
-                        )
-                    ),
-                    Box::new(
-                        Expression::Not(
-                            Box::new(
-                                Expression::Var('b')
-                            )
-                        )
-                    ),
-                )
-            )
-        ));
-    }
-    #[test]
-    fn should_simplify_not () {
-        let not = Expression::Not(
-            Box::new(
-                Expression::Var('a')
-            )
-        );
-        
-        assert_eq!(not.simplify(), Expression::Not(
-            Box::new(
-                Expression::Var('a')
-            )
-        ));
-    }
-    
-    #[test]
-    fn should_simplify_not_recursively () {
-        let not = Expression::Not(
-            Box::new(
-                Expression::And(
-                    Box::new(
-                        Expression::Var('a'),
-                    ),
-                    Box::new(
-                        Expression::Var('b'),
-                    )
-                )
-            )
-        );
-        
-        assert_eq!(
-            not.simplify(),
-            Expression::Not(
-                Box::new(
-                    Expression::Not(
-                        Box::new(
-                            Expression::Or(
-                                Box::new(
-                                    Expression::Not(
-                                        Box::new(
-                                            Expression::Var('a')
-                                        )
-                                    )
-                                ),
-                                Box::new(
-                                    Expression::Not(
-                                        Box::new(
-                                            Expression::Var('b')
-                                        )
-                                    )
-                                ),
-                            ),
-                        )
-                    )
-                )
-            )
-        );
-    }
-
-    #[test]
-    fn should_simplify_or () {
-        let expression = Expression::Or(
-            Box::new(
-                Expression::Var('a')
-            ),
-            Box::new(
-                Expression::Var('b')
-            )
-        );
-
-        assert_eq!(expression.simplify(), Expression::Or(
-            Box::new(
-                Expression::Var('a')
-            ),
-            Box::new(
-                Expression::Var('b')
-            )
         ));
     }
 

@@ -29,233 +29,205 @@ satisfies (OR a b) true
 satisfies (OR a b) false
 	a is false, b is false
 
-R -> X | Any | All | (R)
-Any -> R
-All -> R
+this is a new theory.
+All means that both sides must be satisfied.
+Any means that at least one side must be satisfied.
+Binding means that a name must satisfy a value (v).
+There is no such expression as "not".
+Each name can only be satisfied to a single value. If "a" is satisfied by "x", "a" cannot be satified by other value than "x".
 
-Distributive
-All a (Any b c) => Any (All a b) (All a c)
-All (a b) (Any c d) => Any (All (a b) c) (All (a b) d)
+Rules:
+R -> All | Any | Binding | (R)
+All -> All (R R)
+Any-> Any (R R)
+Binding -> Name S Value
+Name -> [a-z]
+Value-> [a-z]
 
-All x (Any a b) (Any c d) => Any (All x a c) (All x a d) (All x b c) (All x b d)
+Idempotence:
+All (R, R) = R
+Any (R, R) = R
 
-x and ((a or b) and (c or d))
+Commutativity:
+All (R1, R2) = All (R2, R1)
+Any (R1, R2) = Any (R2, R1)
 
-All (Any a b) (Any c d) => Any (All a c) (All a d) (All b c) (All b d)
-All (Any a b) (Any c d)
+Associativity:
+All (R1, All (R2, R3)) = All (All (R1, R2), R3)
+Any (R1, Any (R2, R3)) = Any (Any (R1, R2), R3)
 
+Distributive:
+All (R1, All (R2, R3)) = All(All (R1, R2), All (R1, R3))
+All (R1, Any (R2, R3)) = Any (All (R1, R2), All (R1, R3))
+Any (R1, All (R2, R3)) = All (Any (R1, R2), Any (R1, R3))
+Any (R1, Any (R2, R3)) = Any (Any (R1, R2), Any (R1, R3))
+
+Absorption:
+All (R1, Any (R1, R2)) = Any (All (R1, R1), All (R1, R3)) = Any (R1, All (R1, R3)) = R1
+Any (R1, All (R1, R3)) = All (Any (R1, R1), Any (R1, R3)) = All (R1, Any (R1, R3)) = R1
+
+Contradiction:
+All (a S x, a S y) = Never
+All (a S x, All(R, a S y)) = Never
+
+Null:
+All (R, Never) = Never
+All (Never, Never) = Never
+Any (Never, Never) = Never
+
+Identity:
+Any (R, Contradiction) = R
+
+Tautology:
+Any (a S x1, a S x2) = Always, if x = {x1, x2}
+
+All means that both sides must be satisfied.
+Any means that at least one side must be satisfied.
+Binding means that a name must satisfy a value (v).
+There is no such expression as "not".
+Each name can only be satisfied to a single value. If "a" is satisfied by "x", "a" cannot be satified by other value than "x".
  */
 
-#[derive(Eq, PartialEq, Debug, Clone)]
-pub enum Requirement {
-    Var (char, bool),
-    All (Vec<Requirement>),
-    Any (Vec<Requirement>),
+#[derive(Debug, Clone)]
+pub enum Requirement<T> {
+    Var (T, bool),
+
+    All (Box<Requirement<T>>, Box<Requirement<T>>),
+    Any (Box<Requirement<T>>, Box<Requirement<T>>),
+
+    Always,
+    Never,
 }
 
-#[derive(Eq, PartialEq, Debug, Clone)]
-pub enum Minirequirement {
-    Var (char, bool),
+impl<T: PartialEq> PartialEq for Requirement<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Always, Self::Always) => true,
+            (Self::Never, Self::Never) => true,
 
-    All (Box<Minirequirement>, Box<Minirequirement>),
-    Any (Box<Minirequirement>, Box<Minirequirement>),
+            (Self::Var(ln, lv), Self::Var(rn, rv)) => ln == rn && lv == rv,
+            (Self::All(ll, lr), Self::All(rl, rr)) => (ll == rl && lr == rr) || (ll == rr && lr == rl),
+            (Self::Any(ll, lr), Self::Any(rl, rr)) => (ll == rl && lr == rr) || (ll == rr && lr == rl),
+
+            _ => false
+        }
+    }
 }
 
-impl Minirequirement {
-    fn distributive (self) -> Minirequirement {
+impl<T: Clone + PartialEq + std::fmt::Debug> Requirement<T> {
+    pub fn optimize (self) -> Requirement<T> {
         match self {
-            Minirequirement::All (left, right) => {
-                match (left.distributive(), right.distributive()) {
-                    (
-                        Minirequirement::Any(a, b),
-                        Minirequirement::Any(x, y),
-                    ) => {
-                        let distributions = [
-                            Minirequirement::All(a.clone(), x.clone()),
-                            Minirequirement::All(a.clone(), y.clone()),
-                            Minirequirement::All(b.clone(), x.clone()),
-                            Minirequirement::All(b.clone(), y.clone()),
-                        ];
+            Requirement::All (left, right) => {
+                let left = left.optimize();
+                let right = right.optimize();
 
-                        distributions
-                            .into_iter()
-                            .reduce(|a, b| Minirequirement::Any(Box::new(a), Box::new(b)))
-                            .unwrap()
-                    }
+                match (left, right) {
+                    // Idempotence Law
+                    (left, right) if left == right => left,
 
-                    (
-                        a,
-                        Minirequirement::Any(x, y),
-                    ) => {
-                        let distributions = [
-                            Minirequirement::All(Box::new(a.clone()), x),
-                            Minirequirement::All(Box::new(a.clone()), y),
-                        ];
+                    // Null Law
+                    (Requirement::Never, _) => Requirement::Never,
+                    (_, Requirement::Never) => Requirement::Never,
 
-                        distributions
-                            .into_iter()
-                            .reduce(|a, b| Minirequirement::Any(Box::new(a), Box::new(b)))
-                            .unwrap()
+                    // Contradiction Law
+                    (Requirement::Var(ln, lv), Requirement::Var(rn, rv)) if ln == rn && lv != rv => Requirement::Never,
+
+                    // Distributive Law on Right Side
+                    (left, Requirement::Any (left_of_any, right_of_any)) => {
+                        Requirement::Any(
+                            Box::new(Requirement::All(Box::new(left.clone()), left_of_any)),
+                            Box::new(Requirement::All(Box::new(left.clone()), right_of_any)),
+                        ).optimize()
                     }
                     
-                    (
-                        Minirequirement::Any(a, b),
-                        x,
-                    ) => {
-                        let distributions = [
-                            Minirequirement::All(a, Box::new(x.clone())),
-                            Minirequirement::All(b, Box::new(x.clone())),
-                        ];
-
-                        distributions
-                            .into_iter()
-                            .reduce(|a, b| Minirequirement::Any(Box::new(a), Box::new(b)))
-                            .unwrap()
+                    // Distributive Law on Left Side
+                    (Requirement::Any (left_of_any, right_of_any), right) => {
+                        Requirement::Any(
+                            Box::new(Requirement::All(left_of_any, Box::new(right.clone()))),
+                            Box::new(Requirement::All(right_of_any, Box::new(right.clone()))),
+                        ).optimize()
                     }
 
-                    (left, right) => Minirequirement::All(
+                    (left, right) => Requirement::All(
                         Box::new(left),
                         Box::new(right),
                     )
                 }
             }
 
-            minirequirement => minirequirement,
+            Requirement::Any (left, right) => {
+                let left = left.optimize();
+                let right = right.optimize();
+
+                match (left, right) {
+                    // Idempotence Law
+                    (left, right) if left == right => left,
+
+                    // Null Law
+                    (Requirement::Never, Requirement::Never) => Requirement::Never,
+
+                    // Identity Law
+                    (Requirement::Never, right) => right,
+                    (left, Requirement::Never) => left,
+
+                    // Tautology Law
+                    (Requirement::Var(ln, lv), Requirement::Var(rn, rv)) if ln == rn && lv != rv => Requirement::Always,
+
+                    (left, right) => Requirement::Any(
+                        Box::new(left),
+                        Box::new(right),
+                    )
+                }
+            }
+
+            requirement => requirement,
+        }
+    }
+
+    pub fn format (self) where T: std::fmt::Debug {
+        match self {
+            Requirement::Any (left, right) => {
+                left.format();
+
+                println!();
+                println!();
+
+                right.format();
+                
+                println!();
+            }
+
+            Requirement::All (left, right) => {
+                left.format();
+
+                print!(", ");
+
+                right.format()
+            }
+
+            Requirement::Var(name, value) => {
+                print!("{:?} -> {:?}", name, value);
+            }
+
+            req => unimplemented!("{:?}", req),
         }
     }
 }
 
-
-impl Requirement {
-    fn all (left: Requirement, right: Requirement) -> Requirement {
-        match (left, right) {
-            (Requirement::Any (ls), Requirement::Any (rs)) => {
-                let mut requirements = Vec::new();
-
-                for l in ls.iter() {
-                    for r in rs.iter() {
-                        requirements.push(Requirement::all(
-                            l.clone(),
-                            r.clone(),
-                        ));
-                    }
-                }
-
-                Requirement::Any(requirements)
-            }
-
-            (l, Requirement::Any (rs)) => {
-                let mut requirements = Vec::new();
-
-                for r in rs {
-                    requirements.push(Requirement::all(l.clone(), r));
-                }
-
-                Requirement::Any(requirements)
-            }
-
-            (Requirement::Any (ls), r) => {
-                let mut requirements = Vec::new();
-
-                for l in ls {
-                    requirements.push(Requirement::all(l, r.clone()));
-                }
-
-                Requirement::Any(requirements)
-            }
-
-            (Requirement::All (ls), Requirement::All (rs)) => {
-                Requirement::All(
-                    ls.into_iter().chain(rs.into_iter()).collect()
-                )
-            }
-
-            (Requirement::All (ls), r) => {
-                Requirement::All(
-                    ls.into_iter().chain(std::iter::once(r)).collect()
-                )
-            }
-
-            (l, Requirement::All (rs)) => {
-                Requirement::All(
-                    std::iter::once(l).chain(rs.into_iter()).collect()
-                )
-            }
-
-            (l, r) => Requirement::All(vec![l, r]),
-        }
-    }
-
-    fn any (left: Requirement, right: Requirement) -> Requirement {
-        match (left, right) {
-            (Requirement::Any (ls), Requirement::Any (rs)) => {
-                Requirement::Any(
-                    ls.into_iter().chain(rs.into_iter()).collect()
-                )
-            }
-            
-            (Requirement::Any (ls), r) => {
-                Requirement::Any(
-                    ls.into_iter().chain(std::iter::once(r)).collect()
-                )
-            }
-
-            (l, Requirement::Any (rs)) => {
-                Requirement::Any(
-                    std::iter::once(l).chain(rs.into_iter()).collect()
-                )
-            }
-
-            (l, r) => Requirement::Any(vec![l, r]),
-        }
-    }
+pub struct DynamicSatisfability<'a, T> {
+    expression: &'a Expression<T>,
 }
 
-// #[derive(Default)]
-// struct Requirements {
-//     map: HashMap<char, bool>
-// }
-
-// impl Requirements {
-//     fn with_requirement<I: Into<char>> (mut self, name: I, expectative: bool) -> Self {
-//         self.map.insert(name.into(), expectative);
-
-//         self
-//     }
-
-//     fn merge (self, other: Requirements) -> Option<Self> {
-//         let mut new_map = HashMap::new();
-
-//         for (other_name, other_expectative) in other.map.into_iter() {
-//             match self.map.get(&other_name) {
-//                 Some (expectative) if expectative != &other_expectative => {
-//                     return None
-//                 }
-
-//                 _ => {
-//                     new_map.insert(other_name, other_expectative);
-//                 }
-//             }
-//         }
-
-//         Some(Requirements {
-//             map: new_map
-//         })
-//     }
-// }
-
-pub struct DynamicSatisfability<'a> {
-    expression: &'a Expression,
-}
-
-impl<'a> DynamicSatisfability<'a> {
-    pub fn new (expression: &'a Expression) -> DynamicSatisfability<'a> {
+impl<'a, T: Clone> DynamicSatisfability<'a, T> {
+    pub fn new (expression: &'a Expression<T>) -> DynamicSatisfability<'a, T> {
         DynamicSatisfability {
             expression
         }
     }
 
-    fn satisfies_expression (&self, expression: &Expression, expectative: bool) -> Requirement {
+    fn satisfies_expression (&self, expression: &Expression<T>, expectative: bool) -> Requirement<T> {
+        println!("Checking expression satisfability");
+        
         match expression {
             Expression::Var (name) => Requirement::Var(name.clone(), expectative),
 
@@ -268,14 +240,14 @@ impl<'a> DynamicSatisfability<'a> {
                 let right_requirement = self.satisfies_expression(right, expectative);
 
                 if expectative {
-                    Requirement::any(
-                        left_requirement,
-                        right_requirement,
+                    Requirement::Any(
+                        Box::new(left_requirement),
+                        Box::new(right_requirement),
                     )
                 } else {
-                    Requirement::all(
-                        left_requirement,
-                        right_requirement,
+                    Requirement::All(
+                        Box::new(left_requirement),
+                        Box::new(right_requirement),
                     )
                 }
             }
@@ -285,23 +257,44 @@ impl<'a> DynamicSatisfability<'a> {
                 let right_requirement = self.satisfies_expression(right, expectative);
 
                 if expectative {
-                    Requirement::all(
-                        left_requirement,
-                        right_requirement,
+                    Requirement::All(
+                        Box::new(left_requirement),
+                        Box::new(right_requirement),
                     )
                 } else {
-                    Requirement::any(
-                        left_requirement,
-                        right_requirement,
+                    Requirement::Any(
+                        Box::new(left_requirement),
+                        Box::new(right_requirement),
                     )
                 }
             }
 
-            _ => unimplemented!()
+            Expression::Xor (left, right) => {
+                let left_true = self.satisfies_expression(left, true).into();
+                let left_false = self.satisfies_expression(left, false).into();
+                
+                let right_true = self.satisfies_expression(right, true).into();
+                let right_false = self.satisfies_expression(right, false).into();
+
+                if expectative {
+                    Requirement::Any(
+                        Box::new(Requirement::All(left_true, right_false)),
+                        Box::new(Requirement::All(left_false, right_true)),
+                    )
+                } else {
+                    Requirement::Any(
+                        Box::new(Requirement::All(left_true, right_true)),
+                        Box::new(Requirement::All(left_false, right_false)),
+                    )
+                }                
+            }
+
+            Expression::False => Requirement::Never,
+            Expression::True => Requirement::Always,
         }
     }
 
-    pub fn satisfies (&self, expectative: bool) -> Requirement {
+    pub fn satisfies (&self, expectative: bool) -> Requirement<T> {
         self.satisfies_expression(self.expression, expectative)
     }
 }
@@ -372,10 +365,10 @@ mod test {
         assert_eq!(
             satisfability.satisfies(true),
             
-            Requirement::All(vec![
-                Requirement::Var('a', true),
-                Requirement::Var('b', true),
-            ])
+            Requirement::All(
+                Box::new(Requirement::Var('a', true)),
+                Box::new(Requirement::Var('b', true)),
+            )
         );
     }
 
@@ -392,10 +385,14 @@ mod test {
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(false), Requirement::Any(vec![
-            Requirement::Var('a', false),
-            Requirement::Var('b', false),
-        ]));
+        assert_eq!(
+            satisfability.satisfies(false),
+            
+            Requirement::Any(
+                Box::new(Requirement::Var('a', false)),
+                Box::new(Requirement::Var('b', false)),
+            )
+        );
     }
 
     #[test]
@@ -411,10 +408,14 @@ mod test {
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(true), Requirement::Any(vec![
-            Requirement::Var('a', true),
-            Requirement::Var('b', true),
-        ]));   
+        assert_eq!(
+            satisfability.satisfies(true),
+
+            Requirement::Any(
+                Box::new(Requirement::Var('a', true)),
+                Box::new(Requirement::Var('b', true)),
+            )
+        );  
     }
 
     #[test]
@@ -433,10 +434,10 @@ mod test {
         assert_eq!(
             satisfability.satisfies(false),
 
-            Requirement::All(vec![
-                Requirement::Var('a', false),
-                Requirement::Var('b', false),
-            ])
+            Requirement::All(
+                Box::new(Requirement::Var('a', false)),
+                Box::new(Requirement::Var('b', false)),
+            )
         );
     }
 
@@ -459,10 +460,11 @@ mod test {
         
         assert_eq!(
             satisfability.satisfies(true),
-            Requirement::Any(vec![
-                Requirement::Var('a', false),
-                Requirement::Var('b', false),
-            ])
+
+            Requirement::Any(
+                Box::new(Requirement::Var('a', false)),
+                Box::new(Requirement::Var('b', false)),
+            )
         );
     }
 
@@ -483,40 +485,13 @@ mod test {
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(false), Requirement::All(vec![
-            Requirement::Var('a', true),
-            Requirement::Var('b', true),
-        ]));
-    }
-
-    #[test]
-    fn or_expressions_should_merge () {
-        let expression = Expression::Or(
-            Box::new(
-                Expression::Var('a')
-            ),
-            Box::new(
-                Expression::Or(
-                    Box::new(
-                        Expression::Var('b')
-                    ),
-                    Box::new(
-                        Expression::Var('c')
-                    ),
-                )
-            ),
-        ).de_morgan().optimize();
-
-        println!("{:#?}", expression);
-
-        let satisfability = DynamicSatisfability::new(&expression);
-
-        println!("{:#?}", satisfability.satisfies(true));
-        
-        assert_eq!(satisfability.satisfies(true), Requirement::Any(vec![
-            Requirement::Var('a', true),
-            Requirement::Var('b', true),
-            Requirement::Var('c', true),
-        ]));   
+        assert_eq!(
+            satisfability.satisfies(false),
+            
+            Requirement::All(
+                Box::new(Requirement::Var('a', true)),
+                Box::new(Requirement::Var('b', true)),
+            )
+        );
     }
 }
