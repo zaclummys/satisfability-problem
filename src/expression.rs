@@ -1,18 +1,18 @@
 #[derive(Debug, Clone)]
-pub enum Expression<T> {
-    Var (T),
+pub enum Expression {
+    Var (String),
 
-    Not (Box<Expression<T>>),
-    Or (Box<Expression<T>>, Box<Expression<T>>),
-    And (Box<Expression<T>>, Box<Expression<T>>),
+    Not (Box<Expression>),
+    Or (Box<Expression>, Box<Expression>),
+    And (Box<Expression>, Box<Expression>),
 
-    Xor (Box<Expression<T>>, Box<Expression<T>>),
+    Xor (Box<Expression>, Box<Expression>),
 
     True,
     False,
 }
 
-impl<T: PartialEq> PartialEq for Expression<T> {
+impl PartialEq for Expression {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Not(a), Self::Not(b)) => a == b,
@@ -29,19 +29,22 @@ impl<T: PartialEq> PartialEq for Expression<T> {
 
             (Self::Var(a), Self::Var(b)) => a == b,
 
+            (Expression::True, Expression::True) => true,
+            (Expression::False, Expression::False) => true,
+
             _ => false,
         }
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Debug> Expression<T> {
-    pub fn from_expressions<I: IntoIterator<Item = Expression<T>>> (expressions: I) -> Option<Expression<T>> {
+impl Expression {
+    pub fn from_expressions<I: IntoIterator<Item = Expression>> (expressions: I) -> Option<Expression> {
         expressions.into_iter().reduce(|left, right| {
             Expression::And(Box::new(left), Box::new(right))
         })
     }
 
-    pub fn de_morgan (self) -> Expression<T> {
+    pub fn de_morgan (self) -> Expression {
         match self {
             Expression::Not (a) => match a.de_morgan() {
                 Expression::And (left, right) => {
@@ -69,7 +72,7 @@ impl<T: Clone + PartialEq + std::fmt::Debug> Expression<T> {
      * Transform the expression into a optimized version.
      * Cannot introduce more expressions than there was previously.
      */
-    pub fn optimize (self) -> Expression<T> {
+    pub fn optimize (self) -> Expression {
         println!("Optimizing expression");
 
         match self {
@@ -172,78 +175,78 @@ mod test {
             (Expression::False, Expression::False),
 
             (
-                Expression::Var('a'),
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
+                Expression::Var("a".to_string()),
             ),
 
             (
-                Expression::Not(Box::new(Expression::Var('a'))),
-                Expression::Not(Box::new(Expression::Var('a'))),
+                Expression::Not(Box::new(Expression::Var("a".to_string()))),
+                Expression::Not(Box::new(Expression::Var("a".to_string()))),
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 )
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 )
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 )
             ),
         ];
@@ -261,100 +264,100 @@ mod test {
             (Expression::False, Expression::True),
 
             (
-                Expression::Var('a'),
-                Expression::Var('b'),
+                Expression::Var("a".to_string()),
+                Expression::Var("b".to_string()),
             ),
 
             (
-                Expression::Not(Box::new(Expression::Var('a'))),
-                Expression::Not(Box::new(Expression::Var('b'))),
+                Expression::Not(Box::new(Expression::Var("a".to_string()))),
+                Expression::Not(Box::new(Expression::Var("b".to_string()))),
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 )
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("c".to_string())),
                 )
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('c')),
-                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var("c".to_string())),
+                    Box::new(Expression::Var("c".to_string())),
                 ),
             ),
 
             (
                 Expression::And(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::And(
-                    Box::new(Expression::Var('c')),
-                    Box::new(Expression::Var('d')),
+                    Box::new(Expression::Var("c".to_string())),
+                    Box::new(Expression::Var("d".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('a')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("a".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('b')),
-                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var("b".to_string())),
+                    Box::new(Expression::Var("c".to_string())),
                 )
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('c')),
-                    Box::new(Expression::Var('c')),
+                    Box::new(Expression::Var("c".to_string())),
+                    Box::new(Expression::Var("c".to_string())),
                 ),
             ),
 
             (
                 Expression::Or(
-                    Box::new(Expression::Var('a')),
-                    Box::new(Expression::Var('b')),
+                    Box::new(Expression::Var("a".to_string())),
+                    Box::new(Expression::Var("b".to_string())),
                 ),    
                 Expression::Or(
-                    Box::new(Expression::Var('c')),
-                    Box::new(Expression::Var('d')),
+                    Box::new(Expression::Var("c".to_string())),
+                    Box::new(Expression::Var("d".to_string())),
                 )
             ),
         ];
@@ -369,20 +372,20 @@ mod test {
     fn should_optimize_not () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
         
         assert_eq!(expression.optimize(), Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         ));
     }
     
     #[test]
     fn should_optimize_not_true () {
-        let expression: Expression<()> = Expression::Not(
+        let expression = Expression::Not(
             Box::new(
                 Expression::True
             )
@@ -393,7 +396,7 @@ mod test {
 
     #[test]
     fn should_optimize_not_false () {
-        let expression: Expression<()> = Expression::Not(
+        let expression = Expression::Not(
             Box::new(
                 Expression::False
             )
@@ -408,10 +411,10 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     )
                 )
             )
@@ -424,14 +427,14 @@ mod test {
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a')
+                            Expression::Var("a".to_string())
                         )
                     )
                 ),
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('b')
+                            Expression::Var("b".to_string())
                         )
                     )
                 ),
@@ -445,10 +448,10 @@ mod test {
             Box::new(
                 Expression::Or(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     )
                 )
             )
@@ -461,14 +464,14 @@ mod test {
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a')
+                            Expression::Var("a".to_string())
                         )
                     )
                 ),
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('b')
+                            Expression::Var("b".to_string())
                         )
                     )
                 ),
@@ -480,7 +483,7 @@ mod test {
     fn should_not_apply_de_morgan_law_when_to_not_var () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
         
@@ -489,7 +492,7 @@ mod test {
 
             Expression::Not(
                 Box::new(
-                    Expression::Var('a')
+                    Expression::Var("a".to_string())
                 )
             )
         );
@@ -501,32 +504,32 @@ mod test {
             Box::new(
                 Expression::Not(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     )
                 )
             )
         );
         
-        assert_eq!(double_not.optimize(), Expression::Var('a'));
+        assert_eq!(double_not.optimize(), Expression::Var("a".to_string()));
     }
     
     #[test]
     fn should_optimize_and () {
         let and = Expression::And(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('b'),
+                Expression::Var("b".to_string()),
             ),
         );
         
         assert_eq!(and.optimize(), Expression::And(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('b'),
+                Expression::Var("b".to_string()),
             ),
         ));
     }
@@ -535,14 +538,14 @@ mod test {
     fn should_optimize_and_with_idempotent_law () {
         let idempotent_and = Expression::And(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
         );
         
-        assert_eq!(idempotent_and.optimize(), Expression::Var('a'));
+        assert_eq!(idempotent_and.optimize(), Expression::Var("a".to_string()));
     }
 
     #[test]
@@ -554,14 +557,14 @@ mod test {
                     Expression::True
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
             // Right
             Expression::And(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::True
@@ -570,7 +573,7 @@ mod test {
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var('a'));
+            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
         }
     }
 
@@ -583,14 +586,14 @@ mod test {
                     Expression::False
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
             // Right
             Expression::And(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::False
@@ -611,24 +614,24 @@ mod test {
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
             // Right
             Expression::And(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -648,15 +651,15 @@ mod test {
                 Box::new(
                     Expression::Or(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
@@ -665,30 +668,30 @@ mod test {
                 Box::new(
                     Expression::Or(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
             // Right left
             Expression::And(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::Or(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
@@ -697,15 +700,15 @@ mod test {
             // Right right
             Expression::And(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::Or(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -713,7 +716,7 @@ mod test {
         ];
 
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var('a'));
+            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
         }
     }
 
@@ -721,19 +724,19 @@ mod test {
     fn should_optimize_or () {
         let or = Expression::Or(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('b'),
+                Expression::Var("b".to_string()),
             ),
         );
         
         assert_eq!(or.optimize(), Expression::Or(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('b'),
+                Expression::Var("b".to_string()),
             ),
         ));
     }
@@ -742,14 +745,14 @@ mod test {
     fn should_optimize_or_with_idempotent_law () {
         let idempotent_or = Expression::Or(
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
             Box::new(
-                Expression::Var('a'),
+                Expression::Var("a".to_string()),
             ),
         );
         
-        assert_eq!(idempotent_or.optimize(), Expression::Var('a'));
+        assert_eq!(idempotent_or.optimize(), Expression::Var("a".to_string()));
     }
 
     #[test]
@@ -761,14 +764,14 @@ mod test {
                     Expression::False,
                 ),
                 Box::new(
-                    Expression::Var('a')
+                    Expression::Var("a".to_string())
                 ),
             ),
 
             // Right
             Expression::Or(
                 Box::new(
-                    Expression::Var('a')
+                    Expression::Var("a".to_string())
                 ),
                 Box::new(
                     Expression::False,
@@ -777,7 +780,7 @@ mod test {
         ];
 
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var('a'));
+            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
         }
     }
 
@@ -790,14 +793,14 @@ mod test {
                     Expression::True,
                 ),
                 Box::new(
-                    Expression::Var('a')
+                    Expression::Var("a".to_string())
                 ),
             ),
 
             // Right
             Expression::Or(
                 Box::new(
-                    Expression::Var('a')
+                    Expression::Var("a".to_string())
                 ),
                 Box::new(
                     Expression::True,
@@ -818,24 +821,24 @@ mod test {
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
             // Right
             Expression::Or(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::Not(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -855,15 +858,15 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
 
@@ -872,30 +875,30 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
             ),
             
             // Right left
             Expression::Or(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
@@ -904,15 +907,15 @@ mod test {
             // Right right
             Expression::Or(
                 Box::new(
-                    Expression::Var('a'),
+                    Expression::Var("a".to_string()),
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -920,7 +923,7 @@ mod test {
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var('a'));
+            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
         }
     }
 
@@ -933,20 +936,20 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('c'),
+                            Expression::Var("c".to_string()),
                         ),
                     )
                 ),
@@ -957,20 +960,20 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                     )
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('c'),
+                            Expression::Var("c".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -981,20 +984,20 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('c'),
+                            Expression::Var("c".to_string()),
                         ),
                     )
                 ),
@@ -1005,20 +1008,20 @@ mod test {
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('b'),
+                            Expression::Var("b".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
                 Box::new(
                     Expression::And(
                         Box::new(
-                            Expression::Var('c'),
+                            Expression::Var("c".to_string()),
                         ),
                         Box::new(
-                            Expression::Var('a'),
+                            Expression::Var("a".to_string()),
                         ),
                     )
                 ),
@@ -1031,15 +1034,15 @@ mod test {
     
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
                         Expression::Or(
                             Box::new(
-                                Expression::Var('b')
+                                Expression::Var("b".to_string())
                             ),
                             Box::new(
-                                Expression::Var('c')
+                                Expression::Var("c".to_string())
                             ),
                         )
                     ),
@@ -1055,20 +1058,20 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a'),
+                        Expression::Var("a".to_string()),
                     ),
                     Box::new(
-                        Expression::Var('b'),
+                        Expression::Var("b".to_string()),
                     ),
                 )
             ),
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('c'),
+                        Expression::Var("c".to_string()),
                     ),
                     Box::new(
-                        Expression::Var('d'),
+                        Expression::Var("d".to_string()),
                     ),
                 )
             ),
@@ -1078,20 +1081,20 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a'),
+                        Expression::Var("a".to_string()),
                     ),
                     Box::new(
-                        Expression::Var('b'),
+                        Expression::Var("b".to_string()),
                     ),
                 )
             ),
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('c'),
+                        Expression::Var("c".to_string()),
                     ),
                     Box::new(
-                        Expression::Var('d'),
+                        Expression::Var("d".to_string()),
                     ),
                 )
             ),
@@ -1105,22 +1108,22 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     ),
                 )
             ),
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
                         Expression::Not(
                             Box::new(
-                                Expression::Var('b')
+                                Expression::Var("b".to_string())
                             )
                         )
                     ),
@@ -1128,7 +1131,7 @@ mod test {
             ),
         );
 
-        assert_eq!(expression.optimize(), Expression::Var('a'));
+        assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
     }
 
     #[test]
@@ -1139,19 +1142,19 @@ mod test {
             (
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
                         Expression::Or(
                             Box::new(
                                 Expression::Not(
                                     Box::new(
-                                        Expression::Var('a')
+                                        Expression::Var("a".to_string())
                                     )
                                 )
                             ),
                             Box::new(
-                                Expression::Var('b')
+                                Expression::Var("b".to_string())
                             ),
                         )
                     ),
@@ -1159,10 +1162,10 @@ mod test {
 
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     )
                 ),
             ),

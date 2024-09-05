@@ -5,18 +5,18 @@ pub enum Expectative {
     False,
 }
 
-pub struct GeneralSatisfability<'a, T> {
-    expression: &'a Expression<T>,
+pub struct GeneralSatisfability<'a> {
+    expression: &'a Expression,
 }
 
-impl<'a, T> GeneralSatisfability<'a, T> {
-    pub fn new (expression: &'a Expression<T>) -> GeneralSatisfability<'a, T> {
+impl<'a> GeneralSatisfability<'a> {
+    pub fn new (expression: &'a Expression) -> GeneralSatisfability<'a> {
         GeneralSatisfability {
             expression
         }
     }
 
-    fn satisfies_expression (&self, expression: &Expression<T>, expectative: Expectative) -> bool {
+    fn satisfies_expression (&self, expression: &Expression, expectative: Expectative) -> bool {
         match expression {
             Expression::Var (_) => true,
 
@@ -68,8 +68,8 @@ impl<'a, T> GeneralSatisfability<'a, T> {
     }
 }
 
-impl<'a, T> Expression<T> {
-    pub fn general_satisfability (&'a self) -> GeneralSatisfability<'a, T> {
+impl<'a> Expression {
+    pub fn general_satisfability (&'a self) -> GeneralSatisfability<'a> {
         GeneralSatisfability::new(self)
     }
 }
@@ -82,14 +82,14 @@ mod test {
 
     #[test]
     fn var_expression_should_satisfies_true () {
-        let expression = Expression::Var('a');
+        let expression = Expression::Var("a".to_string());
         
         assert!(expression.general_satisfability().satisfies(Expectative::True));
     }
 
     #[test]
     fn var_expression_should_satisfies_false () {
-        let expression = Expression::Var('a');
+        let expression = Expression::Var("a".to_string());
         
     assert!(expression.general_satisfability().satisfies(Expectative::False));
     }
@@ -98,7 +98,7 @@ mod test {
     fn not_expression_should_satisfies_true () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
         
@@ -109,7 +109,7 @@ mod test {
     fn not_expression_should_satisfies_false () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
         
@@ -120,10 +120,10 @@ mod test {
     fn and_expression_should_satisfies_true () {
         let expression = Expression::And(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
         
@@ -134,10 +134,10 @@ mod test {
     fn and_expression_should_satisfies_false () {
         let expression = Expression::And(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
         

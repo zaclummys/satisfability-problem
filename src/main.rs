@@ -1,29 +1,60 @@
 mod expression;
 mod parser;
 mod lexer;
-mod token;
 mod satisfability;
+mod cli;
 
+use cli::CLI;
+
+use lexer::Lexer;
+use parser::Parser;
 use satisfability::DynamicSatisfability;
 
-use self::expression::{
-    Expression,
-};
-
 fn main () {  
-    let expression = (1..5).into_iter().fold(Expression::Var('0'), |a, b| Expression::Xor(
-        Box::new(
-            a
-        ),
-        Box::new(
-            Expression::Var(std::char::from_u32(b).unwrap()),
-        )
-    ))
+    let arguments = CLI::arguments();
+
+    let lexer = Lexer::new(arguments.string());
+
+    let mut parser = Parser::new(lexer);
+
+    let expression = match parser.parse() {
+        Ok (expression) => expression,
+        Err (error) => {
+            panic!("{:?}", error);
+        }
+    };
+
+    println!("Expression:");
+    println!();
+    println!("{:#?}", expression);
+    println!();
+
+    let expression = expression
         .de_morgan()
-        .optimize()
-        .simplify();
+        .optimize();
+
+    println!();
+
+    println!("Optimized Expression:");
+    println!();
+
+    println!("{:#?}", expression);
+
+    println!();
 
     let satisfability = DynamicSatisfability::new(&expression);
 
-    println!("{:#?}", satisfability.satisfies(true));
+    for expectative in [true] {
+        let requirements = satisfability.satisfies(expectative);
+    
+        println!();
+        println!("Requirements to be {}:", expectative);
+        println!();
+
+        println!("{:#?}", requirements);
+
+        requirements.format();
+
+        println!();
+    }
 }

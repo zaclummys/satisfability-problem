@@ -89,17 +89,17 @@ Each name can only be satisfied to a single value. If "a" is satisfied by "x", "
  */
 
 #[derive(Debug, Clone)]
-pub enum Requirement<T> {
-    Var (T, bool),
+pub enum Requirement {
+    Var (String, bool),
 
-    All (Box<Requirement<T>>, Box<Requirement<T>>),
-    Any (Box<Requirement<T>>, Box<Requirement<T>>),
+    All (Box<Requirement>, Box<Requirement>),
+    Any (Box<Requirement>, Box<Requirement>),
 
     Always,
     Never,
 }
 
-impl<T: PartialEq> PartialEq for Requirement<T> {
+impl PartialEq for Requirement {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Always, Self::Always) => true,
@@ -114,8 +114,10 @@ impl<T: PartialEq> PartialEq for Requirement<T> {
     }
 }
 
-impl<T: Clone + PartialEq + std::fmt::Debug> Requirement<T> {
-    pub fn optimize (self) -> Requirement<T> {
+impl Requirement {
+    pub fn optimize (self) -> Requirement {
+        println!("Optimizing requirements");
+
         match self {
             Requirement::All (left, right) => {
                 let left = left.optimize();
@@ -184,17 +186,17 @@ impl<T: Clone + PartialEq + std::fmt::Debug> Requirement<T> {
         }
     }
 
-    pub fn format (self) where T: std::fmt::Debug {
+    pub fn format (self) {
         match self {
             Requirement::Any (left, right) => {
                 left.format();
 
-                println!();
+                // println!();
                 println!();
 
                 right.format();
                 
-                println!();
+                // println!();
             }
 
             Requirement::All (left, right) => {
@@ -206,7 +208,7 @@ impl<T: Clone + PartialEq + std::fmt::Debug> Requirement<T> {
             }
 
             Requirement::Var(name, value) => {
-                print!("{:?} -> {:?}", name, value);
+                print!("{} -> {}", name, value);
             }
 
             req => unimplemented!("{:?}", req),
@@ -214,19 +216,19 @@ impl<T: Clone + PartialEq + std::fmt::Debug> Requirement<T> {
     }
 }
 
-pub struct DynamicSatisfability<'a, T> {
-    expression: &'a Expression<T>,
+pub struct DynamicSatisfability<'a> {
+    expression: &'a Expression,
 }
 
-impl<'a, T: Clone> DynamicSatisfability<'a, T> {
-    pub fn new (expression: &'a Expression<T>) -> DynamicSatisfability<'a, T> {
+impl<'a> DynamicSatisfability<'a> {
+    pub fn new (expression: &'a Expression) -> DynamicSatisfability<'a> {
         DynamicSatisfability {
             expression
         }
     }
 
-    fn satisfies_expression (&self, expression: &Expression<T>, expectative: bool) -> Requirement<T> {
-        println!("Checking expression satisfability");
+    fn satisfies_expression (&self, expression: &Expression, expectative: bool) -> Requirement {
+        // println!("Checking expression satisfability");
         
         match expression {
             Expression::Var (name) => Requirement::Var(name.clone(), expectative),
@@ -294,7 +296,7 @@ impl<'a, T: Clone> DynamicSatisfability<'a, T> {
         }
     }
 
-    pub fn satisfies (&self, expectative: bool) -> Requirement<T> {
+    pub fn satisfies (&self, expectative: bool) -> Requirement {
         self.satisfies_expression(self.expression, expectative)
     }
 }
@@ -307,56 +309,56 @@ mod test {
 
     #[test]
     fn var_expression_should_satisfies_true () {
-        let expression = Expression::Var('a');
+        let expression = Expression::Var("a".to_string());
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(true), Requirement::Var('a', true));
+        assert_eq!(satisfability.satisfies(true), Requirement::Var("a".to_string(), true));
     }
 
     #[test]
     fn var_expression_should_satisfies_false () {
-        let expression = Expression::Var('a');
+        let expression = Expression::Var("a".to_string());
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(false), Requirement::Var('a', false));
+        assert_eq!(satisfability.satisfies(false), Requirement::Var("a".to_string(), false));
     }
 
     #[test]
     fn not_expression_should_satisfies_true () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(true), Requirement::Var('a', false));
+        assert_eq!(satisfability.satisfies(true), Requirement::Var("a".to_string(), false));
     }
 
     #[test]
     fn not_expression_should_satisfies_false () {
         let expression = Expression::Not(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             )
         );
 
         let satisfability = DynamicSatisfability::new(&expression);
         
-        assert_eq!(satisfability.satisfies(false), Requirement::Var('a', true));
+        assert_eq!(satisfability.satisfies(false), Requirement::Var("a".to_string(), true));
     }
 
     #[test]
     fn and_expression_should_satisfies_true () {
         let expression = Expression::And(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
 
@@ -366,8 +368,8 @@ mod test {
             satisfability.satisfies(true),
             
             Requirement::All(
-                Box::new(Requirement::Var('a', true)),
-                Box::new(Requirement::Var('b', true)),
+                Box::new(Requirement::Var("a".to_string(), true)),
+                Box::new(Requirement::Var("b".to_string(), true)),
             )
         );
     }
@@ -376,10 +378,10 @@ mod test {
     fn and_expression_should_satisfies_false () {
         let expression = Expression::And(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
 
@@ -389,8 +391,8 @@ mod test {
             satisfability.satisfies(false),
             
             Requirement::Any(
-                Box::new(Requirement::Var('a', false)),
-                Box::new(Requirement::Var('b', false)),
+                Box::new(Requirement::Var("a".to_string(), false)),
+                Box::new(Requirement::Var("b".to_string(), false)),
             )
         );
     }
@@ -399,10 +401,10 @@ mod test {
     fn or_expression_should_satisfies_true () {
         let expression = Expression::Or(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
 
@@ -412,8 +414,8 @@ mod test {
             satisfability.satisfies(true),
 
             Requirement::Any(
-                Box::new(Requirement::Var('a', true)),
-                Box::new(Requirement::Var('b', true)),
+                Box::new(Requirement::Var("a".to_string(), true)),
+                Box::new(Requirement::Var("b".to_string(), true)),
             )
         );  
     }
@@ -422,10 +424,10 @@ mod test {
     fn or_expression_should_satisfies_false () {
         let expression = Expression::Or(
             Box::new(
-                Expression::Var('a')
+                Expression::Var("a".to_string())
             ),
             Box::new(
-                Expression::Var('b')
+                Expression::Var("b".to_string())
             ),
         );
 
@@ -435,8 +437,8 @@ mod test {
             satisfability.satisfies(false),
 
             Requirement::All(
-                Box::new(Requirement::Var('a', false)),
-                Box::new(Requirement::Var('b', false)),
+                Box::new(Requirement::Var("a".to_string(), false)),
+                Box::new(Requirement::Var("b".to_string(), false)),
             )
         );
     }
@@ -447,10 +449,10 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     ),
                 )
             )
@@ -462,8 +464,8 @@ mod test {
             satisfability.satisfies(true),
 
             Requirement::Any(
-                Box::new(Requirement::Var('a', false)),
-                Box::new(Requirement::Var('b', false)),
+                Box::new(Requirement::Var("a".to_string(), false)),
+                Box::new(Requirement::Var("b".to_string(), false)),
             )
         );
     }
@@ -474,10 +476,10 @@ mod test {
             Box::new(
                 Expression::And(
                     Box::new(
-                        Expression::Var('a')
+                        Expression::Var("a".to_string())
                     ),
                     Box::new(
-                        Expression::Var('b')
+                        Expression::Var("b".to_string())
                     ),
                 )
             )
@@ -489,8 +491,8 @@ mod test {
             satisfability.satisfies(false),
             
             Requirement::All(
-                Box::new(Requirement::Var('a', true)),
-                Box::new(Requirement::Var('b', true)),
+                Box::new(Requirement::Var("a".to_string(), true)),
+                Box::new(Requirement::Var("b".to_string(), true)),
             )
         );
     }
