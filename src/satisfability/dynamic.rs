@@ -115,6 +115,7 @@ impl PartialEq for Requirement {
 }
 
 impl Requirement {
+    #[inline]
     fn all (left: Requirement, right: Requirement) -> Requirement {
         match (left, right) {
             // Idempotence Law
@@ -150,6 +151,7 @@ impl Requirement {
         }
     }
 
+    #[inline]
     fn any (left: Requirement, right: Requirement) -> Requirement {
         match (left, right) {
             // Idempotence Law
@@ -215,9 +217,7 @@ impl<'a> DynamicSatisfability<'a> {
         }
     }
 
-    fn satisfies_expression (&mut self, expression: &Expression, expectative: bool) -> Requirement {        
-        self.took += 1;
-
+    fn satisfies_expression (&self, expression: &Expression, expectative: bool) -> Requirement {        
         match expression {
             Expression::Var (name) => Requirement::Var(name.clone(), expectative),
 
@@ -260,31 +260,39 @@ impl<'a> DynamicSatisfability<'a> {
             }
 
             Expression::Xor (left, right) => {
-                let left_true = self.satisfies_expression(left, true).into();
-                let left_false = self.satisfies_expression(left, false).into();
-
-                let right_true = self.satisfies_expression(right, true).into();
-                let right_false = self.satisfies_expression(right, false).into();
+                let left_true = self.satisfies_expression(left, true);
+                let left_false = self.satisfies_expression(left, false);
+                
+                let right_true = self.satisfies_expression(right, true);
+                let right_false = self.satisfies_expression(right, false);
 
                 if expectative {
-                    Requirement::Any(
-                        Box::new(Requirement::All(left_true, right_false)),
-                        Box::new(Requirement::All(left_false, right_true)),
+                    Requirement::any(
+                        Requirement::all(left_true, right_false),
+                        Requirement::all(left_false, right_true),
                     )
                 } else {
-                    Requirement::Any(
-                        Box::new(Requirement::All(left_true, right_true)),
-                        Box::new(Requirement::All(left_false, right_false)),
+                    Requirement::any(
+                        Requirement::all(left_true, right_true),
+                        Requirement::all(left_false, right_false),
                     )
                 }                            
             }
 
-            Expression::False => Requirement::Never,
-            Expression::True => Requirement::Always,
+            Expression::False => match expectative {
+                true => Requirement::Never,
+                false => Requirement::Always,
+            }
+
+            Expression::True => match expectative {
+                true => Requirement::Always,
+                false => Requirement::Never,
+            }
+
         }
     }
 
-    pub fn satisfies (&mut self, expectative: bool) -> Requirement {
+    pub fn satisfies (&self, expectative: bool) -> Requirement {
         self.satisfies_expression(self.expression, expectative)
     }
 
