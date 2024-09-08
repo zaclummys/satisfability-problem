@@ -260,7 +260,23 @@ impl<'a> DynamicSatisfability<'a> {
             }
 
             Expression::Xor (left, right) => {
-                panic!()               
+                let left_true = self.satisfies_expression(left, true).into();
+                let left_false = self.satisfies_expression(left, false).into();
+
+                let right_true = self.satisfies_expression(right, true).into();
+                let right_false = self.satisfies_expression(right, false).into();
+
+                if expectative {
+                    Requirement::Any(
+                        Box::new(Requirement::All(left_true, right_false)),
+                        Box::new(Requirement::All(left_false, right_true)),
+                    )
+                } else {
+                    Requirement::Any(
+                        Box::new(Requirement::All(left_true, right_true)),
+                        Box::new(Requirement::All(left_false, right_false)),
+                    )
+                }                            
             }
 
             Expression::False => Requirement::Never,
