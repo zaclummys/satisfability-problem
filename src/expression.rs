@@ -68,96 +68,105 @@ impl Expression {
         }
     }
 
-    /**
-     * Transform the expression into a optimized version.
-     * Cannot introduce more expressions than there was previously.
-     */
-    pub fn optimize (self) -> Expression {
-        println!("Optimizing expression");
+    fn var<S: Into<String>> (string: S) -> Expression {
+        Expression::Var(string.into())
+    }
 
+    fn not (inner: Expression) -> Expression {
+        match inner {
+            Expression::True => Expression::False,
+            Expression::False => Expression::True,
+
+            Expression::Not (inner) => *inner,
+
+            inner => Expression::Not(Box::new(inner)),
+        }
+    }
+
+    fn and (left: Expression, right: Expression) -> Expression {
+        match (left, right) {
+            // Idempotent Law
+            (left, right) if left == right => left,
+
+            // Identity Law
+            (left, Expression::True) => left,
+            (Expression::True, right) => right,
+
+            // Null Law
+            (_, Expression::False) => Expression::False,
+            (Expression::False, _) => Expression::False,
+
+            // Complement Law
+            (left, Expression::Not (right)) if left == *right => Expression::False,
+            (Expression::Not (left), right) if *left == right => Expression::False,
+            
+            // Absorption Law
+            (Expression::Or (left_left, left_right), right) if *left_left == right || *left_right == right => right,
+            (left, Expression::Or (right_left, right_right)) if *right_left == left || *right_right == left => left,
+
+            (left, right) => Expression::And(
+                Box::new(left),
+                Box::new(right),
+            )
+        }
+    }
+
+    fn or (left: Expression, right: Expression) -> Expression {
+        match (left, right) {
+            // Idempotent Law
+            (left, right) if left == right => left,
+    
+            // Identity Law
+            (left, Expression::False) => left,
+            (Expression::False, right) => right,
+    
+            // Null Law
+            (_, Expression::True) => Expression::True,
+            (Expression::True, _) => Expression::True,
+    
+            // Complement Law
+            (left, Expression::Not (right)) if left == *right => Expression::True,
+            (Expression::Not (left), right) if *left == right => Expression::True,
+    
+            // Absortion Law
+            (Expression::And (left_left, left_right), right) if *left_left == right || *left_right == right => right,
+            (left, Expression::And (right_left, right_right)) if *right_left == left || *right_right == left => left,
+            
+            (left, right) => Expression::Or(
+                Box::new(left),
+                Box::new(right),
+            )
+        }
+    }
+
+    fn xor (left: Expression, right: Expression) -> Expression {
+        Expression::Xor(
+            Box::new(left),
+            Box::new(right),
+        )
+    }
+
+    pub fn simplify (self) -> Expression {
         match self {
-            Expression::And (left, right) => {
-                let left = left.optimize();
-                let right = right.optimize();
-                
-                match (left, right) {
-                    // Idempotent Law
-                    (left, right) if left == right => left,
-
-                    // Identity Law
-                    (left, Expression::True) => left,
-                    (Expression::True, right) => right,
-
-                    // Null Law
-                    (_, Expression::False) => Expression::False,
-                    (Expression::False, _) => Expression::False,
-
-                    // Complement Law
-                    (left, Expression::Not (right)) if left == *right => Expression::False,
-                    (Expression::Not (left), right) if *left == right => Expression::False,
-                    
-                    // Absorption Law
-                    (Expression::Or (left_left, left_right), right) if *left_left == right || *left_right == right => right,
-                    (left, Expression::Or (right_left, right_right)) if *right_left == left || *right_right == left => left,
-
-                    (left, right) => Expression::And(
-                        Box::new(left),
-                        Box::new(right),
-                    )
-                }
-            }
-            
-            Expression::Var (name) => Expression::Var(name),
-            
-            Expression::Not (a) => match a.optimize() {
-                Expression::True => Expression::False,
-                Expression::False => Expression::True,
-
-                Expression::Not (b) => *b,
-
-                a => Expression::Not(Box::new(a)),
-            },
-            
-            Expression::Or (left, right) => {
-                let left = left.optimize();
-                let right = right.optimize();
-                
-                match (left, right) {
-                    // Idempotent Law
-                    (left, right) if left == right => left,
-
-                    // Identity Law
-                    (left, Expression::False) => left,
-                    (Expression::False, right) => right,
-
-                    // Null Law
-                    (_, Expression::True) => Expression::True,
-                    (Expression::True, _) => Expression::True,
-
-                    // Complement Law
-                    (left, Expression::Not (right)) if left == *right => Expression::True,
-                    (Expression::Not (left), right) if *left == right => Expression::True,
-
-                    // Absortion Law
-                    (Expression::And (left_left, left_right), right) if *left_left == right || *left_right == right => right,
-                    (left, Expression::And (right_left, right_right)) if *right_left == left || *right_right == left => left,
-                    
-                    (left, right) => Expression::Or(
-                        Box::new(left),
-                        Box::new(right),
-                    )
-                }
-            }
-
             Expression::Xor (left, right) => {
-                let left = left.optimize();
-                let right = right.optimize();
+                let left = left.simplify();
+                let right = right.simplify();
 
-                Expression::Xor(
-                    Box::new(left),
-                    Box::new(right),
+                Expression::or(
+                    Expression::and(
+                        left.clone(),                        
+                        Expression::not(
+                            right.clone(),
+                        )
+                    ),
+                    Expression::and(
+                        Expression::not(
+                            left.clone(),
+                        ),
+                        right.clone(),
+                    ),
                 )
-            }
+            },
 
             expression => expression,
         }
@@ -370,13 +379,9 @@ mod test {
 
     #[test]
     fn should_optimize_not () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::Var("a".to_string())
-            )
-        );
+        let expression = Expression::not(Expression::Var("a".to_string()));
         
-        assert_eq!(expression.optimize(), Expression::Not(
+        assert_eq!(expression, Expression::Not(
             Box::new(
                 Expression::Var("a".to_string())
             )
@@ -385,24 +390,18 @@ mod test {
     
     #[test]
     fn should_optimize_not_true () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::True
-            )
-        );
+        let expression = Expression::not(Expression::True);
         
-        assert_eq!(expression.optimize(), Expression::False);
+        assert_eq!(expression, Expression::False);
     }
 
     #[test]
     fn should_optimize_not_false () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::False
-            )
+        let expression = Expression::not(
+            Expression::False
         );
         
-        assert_eq!(expression.optimize(), Expression::True);
+        assert_eq!(expression, Expression::True);
     }
 
     #[test]
@@ -500,31 +499,23 @@ mod test {
 
     #[test]
     fn should_optimize_double_not () {
-        let double_not = Expression::Not(
-            Box::new(
-                Expression::Not(
-                    Box::new(
-                        Expression::Var("a".to_string())
-                    )
-                )
+        let double_not = Expression::not(
+            Expression::not(
+                Expression::Var("a".to_string())
             )
         );
         
-        assert_eq!(double_not.optimize(), Expression::Var("a".to_string()));
+        assert_eq!(double_not, Expression::Var("a".to_string()));
     }
     
     #[test]
     fn should_optimize_and () {
-        let and = Expression::And(
-            Box::new(
-                Expression::Var("a".to_string()),
-            ),
-            Box::new(
-                Expression::Var("b".to_string()),
-            ),
+        let and = Expression::and(
+            Expression::Var("a".to_string()),
+            Expression::Var("b".to_string()),
         );
         
-        assert_eq!(and.optimize(), Expression::And(
+        assert_eq!(and, Expression::And(
             Box::new(
                 Expression::Var("a".to_string()),
             ),
@@ -536,44 +527,32 @@ mod test {
     
     #[test]
     fn should_optimize_and_with_idempotent_law () {
-        let idempotent_and = Expression::And(
-            Box::new(
-                Expression::Var("a".to_string()),
-            ),
-            Box::new(
-                Expression::Var("a".to_string()),
-            ),
+        let idempotent_and = Expression::and(
+            Expression::Var("a".to_string()),
+            Expression::Var("a".to_string()),
         );
         
-        assert_eq!(idempotent_and.optimize(), Expression::Var("a".to_string()));
+        assert_eq!(idempotent_and, Expression::Var("a".to_string()));
     }
 
     #[test]
     fn should_optimize_and_with_identity_law () {
         let expressions = [
             // Left
-            Expression::And(
-                Box::new(
-                    Expression::True
-                ),
-                Box::new(
-                    Expression::Var("a".to_string()),
-                ),
+            Expression::and(
+                Expression::True,
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::And(
-                Box::new(
-                    Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::True
-                ),
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::True,
             ),
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
+            assert_eq!(expression, Expression::Var("a".to_string()));
         }
     }
 
@@ -581,28 +560,20 @@ mod test {
     fn should_optimize_and_with_null_law () {
         let expressions = [
             // Left
-            Expression::And(
-                Box::new(
-                    Expression::False
-                ),
-                Box::new(
-                    Expression::Var("a".to_string()),
-                ),
+            Expression::and(
+                Expression::False,
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::And(
-                Box::new(
-                    Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::False
-                ),
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::False,
             ),
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::False);
+            assert_eq!(expression, Expression::False);
         }
     }
 
@@ -610,36 +581,24 @@ mod test {
     fn should_optimize_and_with_complement_law () {
         let expressions = [
             // Left
-            Expression::And(
-                Box::new(
-                    Expression::Not(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::and(
+                Expression::not(
                     Expression::Var("a".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::And(
-                Box::new(
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::not(
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::Not(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
-                ),
+                )
             ),
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::False);
+            assert_eq!(expression, Expression::False);
         }
     }
     
@@ -647,76 +606,44 @@ mod test {
     fn should_optimize_and_with_absortion_law () {
         let expressions = [
             // Left left
-            Expression::And(
-                Box::new(
-                    Expression::Or(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::and(
+                Expression::or(
                     Expression::Var("a".to_string()),
+                    Expression::Var("b".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
 
             // Left right
-            Expression::And(
-                Box::new(
-                    Expression::Or(
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::and(
+                Expression::or(
+                    Expression::Var("b".to_string()),
                     Expression::Var("a".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
 
             // Right left
-            Expression::And(
-                Box::new(
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::or(
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::Or(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                    )
-                ),
+                    Expression::Var("b".to_string()),
+                )
             ),
 
             // Right right
-            Expression::And(
-                Box::new(
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::or(
+                    Expression::Var("b".to_string()),
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::Or(
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
                 ),
             ),
         ];
 
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
+            assert_eq!(expression, Expression::Var("a".to_string()));
         }
     }
 
@@ -731,7 +658,7 @@ mod test {
             ),
         );
         
-        assert_eq!(or.optimize(), Expression::Or(
+        assert_eq!(or, Expression::Or(
             Box::new(
                 Expression::Var("a".to_string()),
             ),
@@ -743,44 +670,32 @@ mod test {
     
     #[test]
     fn should_optimize_or_with_idempotent_law () {
-        let idempotent_or = Expression::Or(
-            Box::new(
-                Expression::Var("a".to_string()),
-            ),
-            Box::new(
-                Expression::Var("a".to_string()),
-            ),
+        let idempotent_or = Expression::or(
+            Expression::Var("a".to_string()),
+            Expression::Var("a".to_string()),
         );
         
-        assert_eq!(idempotent_or.optimize(), Expression::Var("a".to_string()));
+        assert_eq!(idempotent_or, Expression::Var("a".to_string()));
     }
 
     #[test]
     fn should_optimize_or_with_identity_law () {
         let expressions = [
             // Left
-            Expression::Or(
-                Box::new(
-                    Expression::False,
-                ),
-                Box::new(
-                    Expression::Var("a".to_string())
-                ),
+            Expression::or(
+                Expression::False,
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::Or(
-                Box::new(
-                    Expression::Var("a".to_string())
-                ),
-                Box::new(
-                    Expression::False,
-                ),
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::False,
             )
         ];
 
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
+            assert_eq!(expression, Expression::Var("a".to_string()));
         }
     }
 
@@ -788,28 +703,20 @@ mod test {
     fn should_optimize_or_with_null_law () {
         let expressions = [
             // Left
-            Expression::Or(
-                Box::new(
-                    Expression::True,
-                ),
-                Box::new(
-                    Expression::Var("a".to_string())
-                ),
+            Expression::or(
+                Expression::True,
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::Or(
-                Box::new(
-                    Expression::Var("a".to_string())
-                ),
-                Box::new(
-                    Expression::True,
-                ),
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::True,
             )
         ];
 
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::True);
+            assert_eq!(expression, Expression::True);
         }
     }
 
@@ -817,36 +724,24 @@ mod test {
     fn should_optimize_or_with_complement_law () {
         let expressions = [
             // Left
-            Expression::Or(
-                Box::new(
-                    Expression::Not(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::or(
+                Expression::not(
                     Expression::Var("a".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
 
             // Right
-            Expression::Or(
-                Box::new(
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::not(
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::Not(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
                 ),
             ),
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::True);
+            assert_eq!(expression, Expression::True);
         }
     }
     
@@ -854,76 +749,44 @@ mod test {
     fn should_optimize_or_with_absortion_law () {
         let expressions = [
             // Left left
-            Expression::Or(
-                Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::or(
+                Expression::and(
                     Expression::Var("a".to_string()),
+                    Expression::Var("b".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
 
             // Left right
-            Expression::Or(
-                Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
-                ),
-                Box::new(
+            Expression::or(
+                Expression::and(
+                    Expression::Var("b".to_string()),
                     Expression::Var("a".to_string()),
                 ),
+                Expression::Var("a".to_string()),
             ),
             
             // Right left
-            Expression::Or(
-                Box::new(
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::and(
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                    )
+                    Expression::Var("b".to_string()),
                 ),
             ),
                 
             // Right right
-            Expression::Or(
-                Box::new(
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::and(
+                    Expression::Var("b".to_string()),
                     Expression::Var("a".to_string()),
-                ),
-                Box::new(
-                    Expression::And(
-                        Box::new(
-                            Expression::Var("b".to_string()),
-                        ),
-                        Box::new(
-                            Expression::Var("a".to_string()),
-                        ),
-                    )
                 ),
             ),
         ];
         
         for expression in expressions {
-            assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
+            assert_eq!(expression, Expression::Var("a".to_string()));
         }
     }
 
@@ -1030,7 +893,7 @@ mod test {
 
         for expression in expressions {
             assert_eq!(
-                expression.optimize(),
+                expression,
     
                 Expression::And(
                     Box::new(
@@ -1077,7 +940,7 @@ mod test {
             ),
         );
 
-        assert_eq!(expression.optimize(), Expression::Or(
+        assert_eq!(expression, Expression::Or(
             Box::new(
                 Expression::And(
                     Box::new(
@@ -1131,7 +994,7 @@ mod test {
             ),
         );
 
-        assert_eq!(expression.optimize(), Expression::Var("a".to_string()));
+        assert_eq!(expression, Expression::Var("a".to_string()));
     }
 
     #[test]
@@ -1173,7 +1036,7 @@ mod test {
         ];
 
         for (before, after) in scenarios {
-            assert_eq!(before.optimize(), after);
+            assert_eq!(before, after);
         }
     }
 }
