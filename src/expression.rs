@@ -44,46 +44,36 @@ impl Expression {
         })
     }
 
-    pub fn de_morgan (self) -> Expression {
-        match self {
-            Expression::Not (a) => match a.de_morgan() {
-                Expression::And (left, right) => {
-                    Expression::Or(
-                        Box::new(Expression::Not(left)),
-                        Box::new(Expression::Not(right)),
-                    )
-                }
-
-                Expression::Or (left, right) => {
-                    Expression::And(
-                        Box::new(Expression::Not(left)),
-                        Box::new(Expression::Not(right)),
-                    )
-                }
-
-                expression => Expression::Not(Box::new(expression))
-            }
-
-            expression => expression
-        }
-    }
-
-    fn var<S: Into<String>> (string: S) -> Expression {
+pub     fn var<S: Into<String>> (string: S) -> Expression {
         Expression::Var(string.into())
     }
 
-    fn not (inner: Expression) -> Expression {
+    pub fn not (inner: Expression) -> Expression {
         match inner {
             Expression::True => Expression::False,
             Expression::False => Expression::True,
 
             Expression::Not (inner) => *inner,
 
+            Expression::And (left, right) => {
+                Expression::or(
+                    Expression::not(*left),
+                    Expression::not(*right),
+                )
+            }
+
+            Expression::Or (left, right) => {
+                Expression::and(
+                    Expression::not(*left),
+                    Expression::not(*right),
+                )
+            }
+
             inner => Expression::Not(Box::new(inner)),
         }
     }
 
-    fn and (left: Expression, right: Expression) -> Expression {
+    pub fn and (left: Expression, right: Expression) -> Expression {
         match (left, right) {
             // Idempotent Law
             (left, right) if left == right => left,
@@ -111,7 +101,7 @@ impl Expression {
         }
     }
 
-    fn or (left: Expression, right: Expression) -> Expression {
+    pub fn or (left: Expression, right: Expression) -> Expression {
         match (left, right) {
             // Idempotent Law
             (left, right) if left == right => left,
@@ -139,7 +129,7 @@ impl Expression {
         }
     }
 
-    fn xor (left: Expression, right: Expression) -> Expression {
+    pub fn xor (left: Expression, right: Expression) -> Expression {
         Expression::Xor(
             Box::new(left),
             Box::new(right),
@@ -406,21 +396,15 @@ mod test {
 
     #[test]
     fn should_apply_de_morgan_law_to_not_and () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::And(
-                    Box::new(
-                        Expression::Var("a".to_string())
-                    ),
-                    Box::new(
-                        Expression::Var("b".to_string())
-                    )
-                )
-            )
+        let expression = Expression::not(
+            Expression::and(
+                Expression::Var("a".to_string()),
+                Expression::Var("b".to_string()),
+            ),
         );
         
         assert_eq!(
-            expression.de_morgan(),
+            expression,
 
             Expression::Or(
                 Box::new(
@@ -443,21 +427,15 @@ mod test {
 
     #[test]
     fn should_apply_de_morgan_law_to_not_or () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::Or(
-                    Box::new(
-                        Expression::Var("a".to_string())
-                    ),
-                    Box::new(
-                        Expression::Var("b".to_string())
-                    )
-                )
+        let expression = Expression::not(
+            Expression::or(
+                Expression::Var("a".to_string()),
+                Expression::Var("b".to_string()),
             )
         );
         
         assert_eq!(
-            expression.de_morgan(),
+            expression,
 
             Expression::And(
                 Box::new(
@@ -480,14 +458,12 @@ mod test {
 
     #[test]
     fn should_not_apply_de_morgan_law_when_to_not_var () {
-        let expression = Expression::Not(
-            Box::new(
-                Expression::Var("a".to_string())
-            )
+        let expression = Expression::not(
+            Expression::Var("a".to_string())
         );
         
         assert_eq!(
-            expression.de_morgan(),
+            expression,
 
             Expression::Not(
                 Box::new(
